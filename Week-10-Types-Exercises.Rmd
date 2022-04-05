@@ -1,5 +1,7 @@
 ---
 title: "Data Types"
+author: Juan Ramirez Jr.
+output: github_document
 ---
 
 ```{r setup}
@@ -11,6 +13,12 @@ library(hms)
 ```
 
 # Logicals
+```{r}
+flights %>% 
+  mutate(delayed = arr_delay > 0) %>% 
+  select(arr_delay, delayed)
+```
+
 
 ## Your Turn 1
 
@@ -25,9 +33,9 @@ Finally, create a summary table that shows:
 
 ```{r}
 flights %>%
-  ___________(delayed = arr_delay > 0) %>%
-  ___________(delayed) %>%
-  ___________(total = _____(delayed), prop = _____(delayed))
+  mutate(delayed = arr_delay > 0) %>%
+  drop_na(delayed) %>%
+  summarise(total = sum(delayed), prop = mean(delayed))
 ```
 
 # Strings
@@ -47,12 +55,15 @@ In your group, fill in the blanks to:
 
 ```{r}
 babynames %>%
-  _______(last = _________, 
-          vowel = __________) %>%
-  group_by(__________) %>%
-  _________(p_vowel = weighted.mean(vowel, n)) %>%
-  _________ +
-  __________
+  mutate(last = str_sub(name, -1), 
+          vowel = last %in% c("a","e","i","o","u","y")) %>%
+  group_by(year, sex) %>%
+  summarise(p_vowel = weighted.mean(vowel, n)) %>%
+  ggplot(aes(x = year, y = p_vowel)) +
+  geom_line(aes(color = sex)) +
+  labs(x = "Year", y = "Proportion of names ending in Vowel",
+       color = "Gender") +
+  theme_classic()
 
 ```
 
@@ -66,11 +77,11 @@ Repeat the demonstration, some of whose code is below, to make a sensible graph 
 
 ```{r}
 gss_cat %>%
-  drop_na(________) %>%
-  group_by(________) %>%
-  summarise(_________________) %>%
+  drop_na(tvhours) %>%
+  group_by(marital) %>%
+  summarise(tv_avg = mean(tvhours)) %>%
   ggplot() +
-    geom_point(mapping = aes(x = _______, y = _________________________))
+    geom_point(mapping = aes(x = tv_avg, y = fct_reorder(marital, tv_avg)))
 ```
 
 ## Your Turn 4
@@ -79,7 +90,13 @@ Do you think liberals or conservatives watch more TV?
 Compute average tv hours by party ID an then plot the results.
 
 ```{r}
-
+gss_cat %>%
+  drop_na(tvhours) %>%
+  group_by(partyid) %>%
+  summarise(tv_avg = mean(tvhours)) %>%
+  ggplot() +
+    geom_point(mapping = aes(x = tv_avg, y = fct_reorder(partyid, tv_avg))) +
+    labs(y = "Party ID", x = "Average Hours of TV")
 ```
 
 
@@ -88,16 +105,16 @@ Compute average tv hours by party ID an then plot the results.
 
 ```{r}
 gss_cat %>%
-  _______(tvhours) %>%
-  _______(partyid = fct_recode(partyid,
+  drop_na(tvhours) %>%
+  mutate(partyid = fct_recode(partyid,
                               "Republican, strong" = "Strong republican",
                               "Republican, weak" = "Not str republican",
                               "Independent, near rep" = "Ind,near rep",
                               "Independent, near dem" = "Ind,near dem",
                               "Democrat, weak" = "Not str democrat",
                               "Democrat, strong" = "Strong democrat")) %>% 
-  _______(partyid) %>%
-  _______(tv_avg = mean(tvhours)) %>%
+  group_by(partyid) %>%
+  summarise(tv_avg = mean(tvhours)) %>%
   ggplot(aes(tv_avg, fct_reorder(partyid, tv_avg))) +
   geom_point() + labs(y = "partyid")
 ```
@@ -105,16 +122,17 @@ gss_cat %>%
 ```{r}
 #levels(gss_cat$partyid)
 gss_cat %>%
-  _______(tvhours) %>%
-  _______(partyid = fct_collapse(partyid,
+  drop_na(tvhours) %>%
+  mutate(partyid = fct_collapse(partyid,
                                 conservative = c("Strong republican", 
                                                  "Not str republican", 
                                                  "Ind,near rep"),
                                 liberal = c("Strong democrat", 
                                             "Not str democrat", 
-                                            "Ind,near dem"))) %>% 
-  ________(partyid) %>%
-  ________(tv_avg = mean(tvhours)) %>%
+                                            "Ind,near dem")) %>% 
+           fct_lump()) %>% 
+  group_by(partyid) %>%
+  summarise(tv_avg = mean(tvhours)) %>%
   ggplot(aes(tv_avg, fct_reorder(partyid, tv_avg))) +
   geom_point() + labs(y = "partyid")
 ```
@@ -131,7 +149,11 @@ Use the `hour` and `minute` variables in `flights` to make a new variable that s
 Then use a smooth line to plot the relationship between time of day and `arr_delay`.
 
 ```{r}
-
+flights %>% 
+  drop_na(arr_delay) %>% 
+  mutate(time = hms(hour = hour, minute = minute)) %>% 
+  ggplot(aes(time, arr_delay)) + 
+    geom_point(alpha = 0.2) + geom_smooth()
 ```
 
 ## Your Turn 6
@@ -143,7 +165,7 @@ Look at the code skeleton for Your Turn 7. Discuss with your neighbor:
 * What does each line do?
 * What will the missing parts need to do?
 
-> Insert your descriptions here
+> The code snippet will create a variable "weekday" that garbs every time for every day of the week, then drop any undefined/unplotted values, and finally create a summary of how many delays happen per day on average.Based on the analysis of the result, the best day to fly is Saturday because there are less delays reported compared to other days.
 
 
 
@@ -157,7 +179,7 @@ Plot the average arrival delay by day as a column chart (bar chart).
 
 ```{r}
 flights %>% 
-  mutate(weekday = _______________________________) %>% 
+  mutate(weekday = wday(time_hour, label = TRUE, abbr = FALSE)) %>% 
   group_by(weekday) %>% 
   drop_na(arr_delay) %>% 
   summarise(avg_delay = mean(arr_delay)) %>% 
